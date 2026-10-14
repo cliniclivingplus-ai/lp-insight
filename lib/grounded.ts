@@ -1,5 +1,15 @@
 import {query} from './turso';
+export function aiProvider(){const provider=process.env.AI_PROVIDER|| (process.env.GEMINI_API_KEY?'gemini':'openai');if(!['gemini','openai'].includes(provider))throw Error('AI_PROVIDER');return provider}
+export function aiConfigured(){return Boolean(aiProvider()==='gemini'?process.env.GEMINI_API_KEY:process.env.OPENAI_API_KEY)}
 export async function structured(instructions:string,input:unknown,schema:unknown,name:string){
+ if(aiProvider()==='gemini'){
+  const key=process.env.GEMINI_API_KEY;if(!key)throw Error('AI_NOT_CONFIGURED');
+  const model=process.env.GEMINI_MODEL||'gemini-3.5-flash-lite';if(!/^[a-zA-Z0-9._-]+$/.test(model))throw Error('AI_MODEL');
+  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{method:'POST',headers:{'x-goog-api-key':key,'Content-Type':'application/json'},body:JSON.stringify({systemInstruction:{parts:[{text:instructions}]},contents:[{role:'user',parts:[{text:JSON.stringify(input)}]}],generationConfig:{responseMimeType:'application/json',responseJsonSchema:schema,maxOutputTokens:6000}}),signal:AbortSignal.timeout(45000),redirect:'error'});
+  if(!r.ok)throw Error(r.status===429?'AI_QUOTA':r.status===401||r.status===403?'AI_KEY':r.status===404?'AI_MODEL':'AI_UNAVAILABLE');
+  const data=await r.json();const candidate=data.candidates?.[0];if(candidate?.finishReason!=='STOP')throw Error('AI_UNAVAILABLE');
+  const text=candidate.content?.parts?.filter((p:any)=>!p.thought&&typeof p.text==='string').map((p:any)=>p.text).join('');if(!text)throw Error('AI_UNAVAILABLE');return JSON.parse(text);
+ }
  const key=process.env.OPENAI_API_KEY;if(!key)throw Error('AI_NOT_CONFIGURED');
  const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({model:process.env.OPENAI_MODEL||'gpt-4.1-mini',store:false,tools:[],instructions,input:JSON.stringify(input),max_output_tokens:3500,text:{format:{type:'json_schema',name,strict:true,schema}}}),signal:AbortSignal.timeout(45000),redirect:'error'});
  if(!r.ok)throw Error(r.status===429?'AI_QUOTA':r.status===401?'AI_KEY':'AI_UNAVAILABLE');
@@ -22,3 +32,4 @@ export function validateEvidence(draft:any,sources:any[]){
 }
 export const verifySchema={type:'object',additionalProperties:false,required:['relevant','checks'],properties:{relevant:{type:'boolean'},checks:{type:'array',items:{type:'object',additionalProperties:false,required:['index','supported'],properties:{index:{type:'integer'},supported:{type:'boolean'}}}}}};
 export function verified(draft:any,result:any){return result.relevant===true&&Array.isArray(result.checks)&&result.checks.length===draft.sentences.length&&draft.sentences.every((_:any,i:number)=>result.checks.filter((c:any)=>c.index===i&&c.supported===true).length===1)}
+

@@ -1,5 +1,5 @@
 import {allowed,query,json} from '../../../lib/turso';
-import {retrieve,structured,answerSchema,verifySchema,validateEvidence,verified} from '../../../lib/grounded';
+import {aiConfigured,aiProvider,retrieve,structured,answerSchema,verifySchema,validateEvidence,verified} from '../../../lib/grounded';
 export const dynamic='force-dynamic';export const runtime='nodejs';export const maxDuration=120;
 const abstain=()=>json({status:'insufficient',sentences:[],citations:[],message:'I could not establish a supported answer from the retrieved Markdown passages. Try a more specific question or browse your sources. No outside sources were used.'});
 export async function POST(request:Request){
@@ -9,7 +9,7 @@ export async function POST(request:Request){
  if(Number(request.headers.get('content-length')||0)>12000)return json({error:'Question is too long'},413);
  let question:string;try{const body=await request.text();if(body.length>12000)return json({error:'Question is too long'},413);question=JSON.parse(body).question;if(typeof question!=='string'||!question.trim()||question.length>2000)return json({error:'Enter a question of up to 2,000 characters'},400);question=question.trim()}catch{return json({error:'Invalid question'},400)}
  try{
- if(!process.env.OPENAI_API_KEY)return json({error:'Add OPENAI_API_KEY to the server environment and redeploy.'},503);
+ if(!aiConfigured())return json({error:'Add GEMINI_API_KEY or OPENAI_API_KEY to the server environment and redeploy.'},503);
  await query('CREATE TABLE IF NOT EXISTS lp_answer_requests (id INTEGER PRIMARY KEY, created_at INTEGER NOT NULL)');
  const now=Math.floor(Date.now()/1000);
  // Atomic global budget also works across concurrent serverless instances.
@@ -23,5 +23,6 @@ export async function POST(request:Request){
  if(!verified(draft,check))return abstain();
  const ids=new Set(draft.sentences.flatMap((s:any)=>s.evidence.map((e:any)=>e.source_id)));
  return json({status:'answered',sentences:draft.sentences,citations:sources.filter((c:any)=>ids.has(c.id)),message:'Written from retrieved library passages. Citations were checked against the stored text; source material remains unreviewed.'});
- }catch(e){const code=e instanceof Error?e.message:'';return json({error:code==='AI_QUOTA'?'OpenAI quota or rate limit reached. Check API billing and usage.':code==='AI_KEY'?'OpenAI rejected the API key. Check the server key and redeploy.':'The answer could not be completed. Please retry. No unverified answer was displayed.'},503)}
+ }catch(e){const code=e instanceof Error?e.message:'';return json({error:code==='AI_QUOTA'?aiProvider()+' quota or rate limit reached. Check API usage and try later.':code==='AI_KEY'?aiProvider()+' rejected the API key or access. Check the server key and API permissions.':code==='AI_MODEL'?'The configured AI model is unavailable. Check GEMINI_MODEL or OPENAI_MODEL.':'The answer could not be completed. Please retry. No unverified answer was displayed.'},503)}
 }
+
