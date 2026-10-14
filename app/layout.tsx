@@ -1,0 +1,1 @@
+import type {Metadata} from 'next';export const metadata:Metadata={title:'LP Insight',description:'Every answer has a source.'};export default function Layout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}</body></html>}

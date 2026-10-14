@@ -1,0 +1,1 @@
+const {database,search}=require('./corpus.cjs');const [indexFile,...question]=process.argv.slice(2);if(!indexFile||!question.length)throw Error('Provide an index filename and a question');const db=database(indexFile);console.log(JSON.stringify(search(db,question.join(' ')),null,2));db.close();

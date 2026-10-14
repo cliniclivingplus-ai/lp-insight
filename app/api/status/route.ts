@@ -1,0 +1,3 @@
+import {allowed,query,json} from '../../../lib/turso';export const dynamic='force-dynamic';export async function GET(){if(!await allowed())return json({error:'Sign in required'},401);try{return json((await query('SELECT (SELECT count(*) FROM lp_documents) AS documents,(SELECT count(*) FROM lp_chunks) AS passages'))[0])}catch(error){return json({error:'Library unavailable',code:error instanceof Error&&error.message==='Database configuration missing'?'CONFIGURATION_MISSING':error instanceof Error&&error.message==='Query failed'?'DATABASE_QUERY':error instanceof Error&&/^Database HTTP [0-9]+$/.test(error.message)?error.message:'DATABASE_NETWORK_'+(error instanceof Error?error.name:'Unknown')},503)}}
+
+
