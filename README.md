@@ -25,3 +25,8 @@ Vercel's Hobby plan is restricted to personal, non-commercial use. Use an approp
 ## Local ingestion tools
 
 scripts/corpus.cjs parses documents and preserves source metadata. scripts/ingest.cjs imports a source folder into a local versioned SQLite index. scripts/turso-migrate.cjs migrates the active index into Turso. These tools run locally and are excluded from Vercel deployment uploads. Private corpus files live outside this repository.
+
+## Grounded AI answers
+The authenticated POST /api/answer endpoint retrieves up to 12 deduplicated Markdown passages (36,000 characters), then uses the OpenAI Responses API with structured output and no tools. OPENAI_API_KEY is server-only; OPENAI_MODEL defaults to gpt-4.1-mini. Responses use store:false. Only the question and selected passages are sent; OpenAI's API data policies still apply.
+Every sentence must cite a retrieved chunk with a verbatim quote. Server checks reject unknown chunks and altered quotes. A second model call checks sentence support and question relevance; failures withhold the answer. This reduces unsupported claims but does not guarantee correctness or replace review of source material. Retrieval currently uses full-text search, not vector embeddings, and can miss differently worded evidence.
+Sentence clicks highlight the quote in the stored passage. Source links use the database's original URL; book references show the stored title and page where available. A global atomic limit permits 20 requests per ten minutes and 300 per rolling day. Existing pilot shared-password authentication remains in place; individual accounts are not implemented yet.

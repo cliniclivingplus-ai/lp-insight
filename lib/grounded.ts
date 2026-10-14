@@ -1,0 +1,24 @@
+import {query} from './turso';
+export async function structured(instructions:string,input:unknown,schema:unknown,name:string){
+ const key=process.env.OPENAI_API_KEY;if(!key)throw Error('AI_NOT_CONFIGURED');
+ const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({model:process.env.OPENAI_MODEL||'gpt-4.1-mini',store:false,tools:[],instructions,input:JSON.stringify(input),max_output_tokens:3500,text:{format:{type:'json_schema',name,strict:true,schema}}}),signal:AbortSignal.timeout(45000),redirect:'error'});
+ if(!r.ok)throw Error(r.status===429?'AI_QUOTA':r.status===401?'AI_KEY':'AI_UNAVAILABLE');
+ const data=await r.json();if(data.status!=='completed')throw Error('AI_UNAVAILABLE');
+ const text=data.output?.flatMap((o:any)=>o.content||[]).filter((c:any)=>c.type==='output_text').map((c:any)=>c.text).join('');
+ if(!text)throw Error('AI_UNAVAILABLE');return JSON.parse(text);
+}
+export async function retrieve(question:string){
+ const stop=new Set('what how why does do is are the a an of for in to and with from about say says can my library knowledge tell me find passages explain please according benefits benefit'.split(' '));
+ const terms=[...new Set((question.toLowerCase().match(/[\p{L}\p{N}]+/gu)||[]).filter(t=>t.length>2&&!stop.has(t)))].slice(0,16);
+ if(!terms.length)return [];
+ const rows=await query('SELECT c.*,d.title,d.path,d.source_url,d.collection,d.status,bm25(lp_search) AS rank FROM lp_search JOIN lp_chunks c ON c.id=lp_search.rowid JOIN lp_documents d ON d.id=c.document_id AND d.version=c.document_version WHERE lp_search MATCH ? ORDER BY rank LIMIT 60',[terms.map(t=>'"'+t+'"').join(' OR ')]);
+ const seen=new Set<string>(),perDoc=new Map<string,number>();let size=0;
+ return rows.filter((c:any)=>{const text=c.content.trim();const count=perDoc.get(c.document_id)||0;if(seen.has(text)||count>=2||size+text.length>36000)return false;seen.add(text);perDoc.set(c.document_id,count+1);size+=text.length;return true}).slice(0,12);
+}
+export const answerSchema={type:'object',additionalProperties:false,required:['status','sentences'],properties:{status:{type:'string',enum:['answered','insufficient']},sentences:{type:'array',items:{type:'object',additionalProperties:false,required:['section','text','evidence'],properties:{section:{type:'string',enum:['Answer','Explanation','Connection to your question','Limitations']},text:{type:'string'},evidence:{type:'array',items:{type:'object',additionalProperties:false,required:['source_id','quote'],properties:{source_id:{type:'integer'},quote:{type:'string'}}}}}}}}};
+export function validateEvidence(draft:any,sources:any[]){
+ if(draft.status!=='answered'||!Array.isArray(draft.sentences)||draft.sentences.length<1||draft.sentences.length>16)return false;
+ return draft.sentences.every((s:any)=>typeof s.text==='string'&&s.text.length>0&&s.text.length<=1500&&Array.isArray(s.evidence)&&s.evidence.length>0&&s.evidence.length<=4&&s.evidence.every((e:any)=>typeof e.quote==='string'&&e.quote.trim().length>=12&&sources.some(c=>c.id===e.source_id&&c.content.includes(e.quote))));
+}
+export const verifySchema={type:'object',additionalProperties:false,required:['relevant','checks'],properties:{relevant:{type:'boolean'},checks:{type:'array',items:{type:'object',additionalProperties:false,required:['index','supported'],properties:{index:{type:'integer'},supported:{type:'boolean'}}}}}};
+export function verified(draft:any,result:any){return result.relevant===true&&Array.isArray(result.checks)&&result.checks.length===draft.sentences.length&&draft.sentences.every((_:any,i:number)=>result.checks.filter((c:any)=>c.index===i&&c.supported===true).length===1)}
