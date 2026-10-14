@@ -18,18 +18,24 @@ export async function structured(instructions:string,input:unknown,schema:unknow
  if(!text)throw Error('AI_UNAVAILABLE');return JSON.parse(text);
 }
 export async function retrieve(question:string){
- const stop=new Set('what how why does do is are the a an of for in to and with from about say says can my library knowledge tell me find passages explain please according benefits benefit'.split(' '));
+ const stop=new Set('what how why does do is are the a an of for in to and with from about say says can my library knowledge tell me find passages explain please according benefits benefit sources source stored files file'.split(' '));
  const terms=[...new Set((question.toLowerCase().match(/[\p{L}\p{N}]+/gu)||[]).filter(t=>t.length>2&&!stop.has(t)))].slice(0,16);
  if(!terms.length)return [];
- const rows=await query('SELECT c.*,d.title,d.path,d.source_url,d.collection,d.status,bm25(lp_search) AS rank FROM lp_search JOIN lp_chunks c ON c.id=lp_search.rowid JOIN lp_documents d ON d.id=c.document_id AND d.version=c.document_version WHERE lp_search MATCH ? ORDER BY rank LIMIT 60',[terms.map(t=>'"'+t+'"').join(' OR ')]);
+ const sql='SELECT c.*,d.title,d.path,d.source_url,d.collection,d.status,bm25(lp_search) AS rank FROM lp_search JOIN lp_chunks c ON c.id=lp_search.rowid JOIN lp_documents d ON d.id=c.document_id AND d.version=c.document_version WHERE lp_search MATCH ? ORDER BY rank LIMIT 60';
+ const exact=await query(sql,[terms.map(t=>'"'+t+'"').join(' AND ')]);
+ const broader=exact.length>=12?[]:await query(sql,[terms.map(t=>'"'+t+'"').join(' OR ')]);
  const seen=new Set<string>(),perDoc=new Map<string,number>();let size=0;
- return rows.filter((c:any)=>{const text=c.content.trim();const count=perDoc.get(c.document_id)||0;if(seen.has(text)||count>=2||size+text.length>36000)return false;seen.add(text);perDoc.set(c.document_id,count+1);size+=text.length;return true}).slice(0,12);
+ return [...exact,...broader].filter((c:any)=>{const text=c.content.trim();const count=perDoc.get(c.document_id)||0;if(seen.has(text)||count>=2||size+text.length>36000)return false;seen.add(text);perDoc.set(c.document_id,count+1);size+=text.length;return true}).slice(0,12);
+}export const answerSchema={type:'object',additionalProperties:false,required:['status','sentences'],properties:{status:{type:'string',enum:['answered','insufficient']},sentences:{type:'array',items:{type:'object',additionalProperties:false,required:['section','text','evidence'],properties:{section:{type:'string',enum:['Answer','Explanation','Connection to your question','Limitations']},text:{type:'string'},evidence:{type:'array',items:{type:'object',additionalProperties:false,required:['source_id','quote'],properties:{source_id:{type:'integer'},quote:{type:'string'}}}}}}}}};
+export function exactQuote(content:string,quote:string){
+ if(content.includes(quote))return quote;
+ const escaped=quote.trim().split(/\s+/u).map(part=>part.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('\\s+');
+ return content.match(new RegExp(escaped,'u'))?.[0]||null;
 }
-export const answerSchema={type:'object',additionalProperties:false,required:['status','sentences'],properties:{status:{type:'string',enum:['answered','insufficient']},sentences:{type:'array',items:{type:'object',additionalProperties:false,required:['section','text','evidence'],properties:{section:{type:'string',enum:['Answer','Explanation','Connection to your question','Limitations']},text:{type:'string'},evidence:{type:'array',items:{type:'object',additionalProperties:false,required:['source_id','quote'],properties:{source_id:{type:'integer'},quote:{type:'string'}}}}}}}}};
 export function validateEvidence(draft:any,sources:any[]){
  if(draft.status!=='answered'||!Array.isArray(draft.sentences)||draft.sentences.length<1||draft.sentences.length>16)return false;
- return draft.sentences.every((s:any)=>typeof s.text==='string'&&s.text.length>0&&s.text.length<=1500&&Array.isArray(s.evidence)&&s.evidence.length>0&&s.evidence.length<=4&&s.evidence.every((e:any)=>typeof e.quote==='string'&&e.quote.trim().length>=12&&sources.some(c=>c.id===e.source_id&&c.content.includes(e.quote))));
-}
-export const verifySchema={type:'object',additionalProperties:false,required:['relevant','checks'],properties:{relevant:{type:'boolean'},checks:{type:'array',items:{type:'object',additionalProperties:false,required:['index','supported'],properties:{index:{type:'integer'},supported:{type:'boolean'}}}}}};
+ return draft.sentences.every((s:any)=>typeof s.text==='string'&&s.text.length>0&&s.text.length<=1500&&Array.isArray(s.evidence)&&s.evidence.length>0&&s.evidence.length<=4&&s.evidence.every((e:any)=>{if(typeof e.quote!=='string'||e.quote.trim().length<12)return false;const source=sources.find(c=>c.id===e.source_id);if(!source)return false;const quote=exactQuote(source.content,e.quote);if(!quote)return false;e.quote=quote;return true}));
+}export const verifySchema={type:'object',additionalProperties:false,required:['relevant','checks'],properties:{relevant:{type:'boolean'},checks:{type:'array',items:{type:'object',additionalProperties:false,required:['index','supported'],properties:{index:{type:'integer'},supported:{type:'boolean'}}}}}};
 export function verified(draft:any,result:any){return result.relevant===true&&Array.isArray(result.checks)&&result.checks.length===draft.sentences.length&&draft.sentences.every((_:any,i:number)=>result.checks.filter((c:any)=>c.index===i&&c.supported===true).length===1)}
+
 
