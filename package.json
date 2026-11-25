@@ -7,20 +7,28 @@
     "node": ">=22.13.0"
   },
   "scripts": {
+    "prebuild": "node scripts/semantic-assets.mjs",
+    "semantic:assets": "node scripts/semantic-assets.mjs",
+    "semantic:plan": "node scripts/semantic-index.mjs plan",
+    "semantic:build": "node scripts/semantic-index.mjs build",
+    "semantic:upload": "node scripts/semantic-index.mjs upload",
     "dev": "next dev --port 5174",
     "build": "next build",
     "start": "next start --port 5174",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@libsql/client": "^0.18.0",
+    "fast-xml-parser": "^5.11.2",
     "next": "16.3.4",
     "react": "19.2.6",
     "react-dom": "19.2.6"
   },
   "devDependencies": {
-    "typescript": "5.9.3",
+    "@huggingface/transformers": "4.3.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
-    "@types/react-dom": "19.2.3"
+    "@types/react-dom": "19.2.3",
+    "typescript": "5.9.3"
   }
 }

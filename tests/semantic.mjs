@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';import fs from 'node:fs';import {createRequire} from 'node:module';import {createClient} from '@libsql/client';
+const require=createRequire(import.meta.url),{POLICY,fits,projected,vectorValid,fuse,windows,storageBytes,guardedWrite}=require('../scripts/semantic-common.cjs');
+assert.equal(POLICY.limit-POLICY.ceiling,1_000_000_000);
+assert.equal(fits(619_000_000,3_000_000_000),true);assert.equal(fits(619_000_000,3_200_000_000),false);
+assert.ok(projected(618_762_240,297752)<POLICY.ceiling);assert.ok(projected(618_762_240,320000)>POLICY.ceiling);
+const v=Array(384).fill(0);v[0]=1;assert.ok(vectorValid(v));for(const bad of [[],v.slice(1),[...v,0],Array(384).fill(0),v.map(()=>NaN),v.map(()=>Infinity),v.map(()=>1),'vector'])assert.equal(vectorValid(bad),false);
+assert.deepEqual(fuse([{id:1},{id:2},{id:3}],[{id:3},{id:4},{id:1}]).map(x=>x.id),[1,3,2,4]);assert.deepEqual(fuse([{id:1},{id:2}],[]).map(x=>x.id),[1,2]);assert.equal(fuse([{id:1},{id:1}],[{id:1}]).length,1);
+const tokenizer=text=>({input_ids:{data:Array.from(text.matchAll(/\S+/g),()=>0)}}),content=Array.from({length:900},(_,i)=>'word'+i).join(' '),spans=windows({content,title:'A title'},tokenizer);
+assert.equal(spans[0].start,0);assert.equal(spans.at(-1).end,content.length);assert.ok(spans.every(w=>w.tokens<=512));for(let i=1;i<spans.length;i++)assert.ok(spans[i].start<=spans[i-1].end);
+fs.mkdirSync('.sites-runtime/semantic-tests',{recursive:true});const filename='.sites-runtime/semantic-tests/transaction-'+Date.now()+'.db',client=createClient({url:'file:'+filename});
+try{await client.execute('CREATE TABLE data(id INTEGER PRIMARY KEY,body BLOB)');const before=await storageBytes(client),policy={...POLICY,ceiling:before+16384,margin:0};
+await assert.rejects(guardedWrite(client,tx=>tx.execute('INSERT INTO data VALUES(1,zeroblob(100000))'),0,policy),/STOP_REMOTE_GROWTH/);assert.equal(Number((await client.execute('SELECT count(*) n FROM data')).rows[0].n),0,'over-budget transaction must roll back');
+await guardedWrite(client,tx=>tx.execute("INSERT INTO data VALUES(2,'okay')"),0,{...POLICY,ceiling:1e6,margin:0});assert.equal(Number((await client.execute('SELECT count(*) n FROM data')).rows[0].n),1);
+await assert.rejects(guardedWrite(client,()=>{throw Error('must not execute')},0,{...POLICY,ceiling:1,margin:0}),/STOP_REMOTE_STORAGE_CEILING/);
+await assert.rejects(guardedWrite(client,tx=>tx.execute("INSERT INTO data VALUES(3,'okay')"),1e6,{...POLICY,ceiling:1e6,margin:0}),/STOP_REMOTE_GROWTH/);assert.equal(Number((await client.execute('SELECT count(*) n FROM data')).rows[0].n),1);
+await client.execute('CREATE TABLE lp_chunks(id INTEGER PRIMARY KEY,document_id TEXT,document_version INTEGER,content TEXT)');for(const sql of require('../scripts/semantic-schema.cjs'))await client.execute(sql);
+await client.execute("INSERT INTO lp_chunks VALUES(1,'doc',1,'original')");await client.execute({sql:"INSERT INTO lp_semantic_vectors VALUES(1,1,1,'hash',0,8,vector32(?))",args:[JSON.stringify(v)]});
+await client.execute("UPDATE lp_chunks SET content='original' WHERE id=1");assert.equal(Number((await client.execute('SELECT count(*) n FROM lp_semantic_vectors')).rows[0].n),1,'unchanged import preserves vectors');
+await client.execute("UPDATE lp_chunks SET content='changed' WHERE id=1");assert.equal(Number((await client.execute('SELECT count(*) n FROM lp_semantic_vectors')).rows[0].n),0,'changed source invalidates its vector and index');
+await client.execute({sql:"INSERT INTO lp_semantic_vectors VALUES(1,1,1,'hash',0,8,vector32(?))",args:[JSON.stringify(v)]});await client.execute('DELETE FROM lp_chunks WHERE id=1');assert.equal(Number((await client.execute('SELECT count(*) n FROM lp_semantic_vectors')).rows[0].n),0);
+const lostResponse={transaction:async()=>{const tx=await client.transaction('write');return {execute:stmt=>tx.execute(stmt),commit:async()=>{await tx.commit();throw Object.assign(Error('connection reset after commit'),{code:'ECONNRESET'})},rollback:()=>tx.rollback(),close:()=>tx.close()}}};
+await assert.rejects(guardedWrite(lostResponse,tx=>tx.execute({sql:"INSERT INTO lp_semantic_vectors VALUES(1,1,1,'hash',0,8,vector32(?))",args:[JSON.stringify(v)]}),0),/connection reset/);
+const checkpoint=await require('../scripts/semantic-common.cjs').readCheckpoint(client);assert.deepEqual(checkpoint,{n:1,last:1});
+await guardedWrite(client,tx=>tx.execute({sql:"INSERT INTO lp_semantic_vectors VALUES(?,1,1,'hash',0,8,vector32(?))",args:[checkpoint.last+1,JSON.stringify(v)]}),0);
+assert.deepEqual(await require('../scripts/semantic-common.cjs').readCheckpoint(client),{n:2,last:2});
+console.log('Passed vector validation, fusion, window coverage, transactional storage rollback, source invalidation and real committed-checkpoint recovery after a lost commit response.');}finally{client.close()}

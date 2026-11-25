@@ -1,0 +1,18 @@
+const fs=require('fs'),ts=require('typescript'),assert=require('node:assert/strict');const m={exports:{}};new Function('exports','module',ts.transpileModule(fs.readFileSync('lib/guard.ts','utf8'),{compilerOptions:{module:1,target:9}}).outputText)(m.exports,m);const check=(text,quote,content=quote)=>m.exports.evidenceScopeGrounded({text,evidence:[{source_id:1,quote}]},[{id:1,content}]);
+assert.equal(check('Consult clinicians about medication adjustments.','providing individualized counseling sessions addressing barriers to change.'),false);
+assert.equal(check('High-fat diets mask insulin resistance.','masking it','We are talking about adult onset, type two diabetes. Masking it.'),false);
+assert.equal(check('In type 2 diabetes, carbohydrate restriction may mask insulin resistance.','masking it','We are talking about type two diabetes. Masking it.'),true);
+assert.equal(check('Choose oats and beans.','Choose oats and beans.'),true);
+assert.equal(check('Discuss medication adjustments with your clinician.','Discuss medication adjustments with your clinician.'),true);
+assert.equal(check('A diet improves blood sugar.','In type 2 diabetes, a diet improves blood sugar.'),false);
+assert.equal(check('Soluble fiber and plant proteins trap cholesterol.','Soluble fiber traps cholesterol.'),false);
+assert.equal(check('Soluble fiber traps cholesterol.','Soluble fiber traps cholesterol.'),true);
+assert.equal(check('Saturated fat prevents LDL clearance.','Too much saturated fat prevents LDL clearance.'),false);
+assert.equal(check('Excess saturated fat prevents LDL clearance.','Too much saturated fat prevents LDL clearance.'),true);
+assert.equal(m.exports.patientAdviceSafe('Consider discontinuing the ketogenic diet.'),false);
+assert.equal(check('The retrieved library passages do not establish personalized schedules.','I prefer eating earlier.'),false);
+assert.equal(check('A study found impaired glucose control.','A study limited 11 healthy men to less sleep.'),false);
+assert.equal(check('A study in healthy men found impaired glucose control.','A study limited 11 healthy men to less sleep.'),true);
+assert.equal(check('Avoid alcohol to prevent nighttime awakenings.','Alcohol can cause awakening.'),false);
+assert.equal(check('Avoid alcohol to prevent alcohol-related nighttime awakenings.','Alcohol can cause awakening.'),true);
+console.log('Passed population preservation and complete clinician/medication citation checks.');

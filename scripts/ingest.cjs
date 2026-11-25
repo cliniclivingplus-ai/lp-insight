@@ -1,5 +1,7 @@
 const fs=require('node:fs'),path=require('node:path');
 const {list,parse,database,search,hash}=require('./corpus.cjs');
+const {loadTitles,videoTitle}=require('./video-titles.cjs');
+const videoTitles=loadTitles();
 const [root,indexFile,reportFile]=process.argv.slice(2);if(!root||!indexFile||!reportFile)throw Error('Usage: node scripts/ingest.cjs SOURCE_DIRECTORY INDEX_FILE REPORT_JSON');
 const files=list(root),db=database(indexFile),stats={files:files.length,bytes:0,words:0,chunks:0,empty:0,missing_source_url:0,book_page_files:0,video_timestamp_files:0,generic_video_titles:0,encoding_warnings:0,duplicate_groups:0,duplicates:0,added:0,updated:0,unchanged:0,collections:{},errors:[],missing_files:[]};const hashes=new Map(),seen=new Set();
 const lookup=db.prepare('SELECT * FROM documents WHERE id=? AND active=1 ORDER BY version DESC LIMIT 1');
@@ -9,7 +11,8 @@ db.exec('BEGIN');let done=0;for(const file of files){let relative=path.relative(
  const buffer=fs.readFileSync(file),text=buffer.toString('utf8'),contentHash=hash(buffer),doc=parse(text,relative),id=hash(relative);seen.add(relative);const normalizedHash=hash(doc.body.replace(/\s+/g,' ').trim());if(!hashes.has(normalizedHash))hashes.set(normalizedHash,[]);hashes.get(normalizedHash).push(relative);
  stats.bytes+=buffer.length;stats.words+=(doc.body.match(/\S+/g)||[]).length;stats.chunks+=doc.chunks.length;if(!doc.body.trim())stats.empty++;if(!doc.source)stats.missing_source_url++;if(doc.has_pages)stats.book_page_files++;if(doc.collection==='videos'&&doc.has_timestamps)stats.video_timestamp_files++;if(doc.generic_title)stats.generic_video_titles++;if(text.includes('\uFFFD'))stats.encoding_warnings++;
  const group=stats.collections[doc.collection]??={files:0,bytes:0,chunks:0,missing_urls:0};group.files++;group.bytes+=buffer.length;group.chunks+=doc.chunks.length;if(!doc.source)group.missing_urls++;
- const previous=lookup.get(id);if(previous?.content_hash===contentHash){stats.unchanged++;continue}
+ const previous=lookup.get(id);doc.title=videoTitle({...doc,path:relative},videoTitles,previous?.title);
+ if(previous?.content_hash===contentHash){if(doc.title!==previous.title)db.prepare('UPDATE documents SET title=? WHERE id=? AND version=?').run(doc.title,id,previous.version);stats.unchanged++;continue}
  const version=(previous?.version||0)+1;db.exec('SAVEPOINT document_import');try{if(previous)db.prepare('UPDATE documents SET active=0 WHERE id=?').run(id);insertDoc.run(id,version,relative,contentHash,doc.title,doc.source,doc.collection,doc.category);doc.chunks.forEach((c,i)=>{const result=insertChunk.run(id,version,i,c.content,c.heading,c.page,c.start_seconds,c.end_seconds,c.start_line,c.end_line);insertSearch.run(result.lastInsertRowid,c.content,c.heading)});db.exec('RELEASE document_import')}catch(e){db.exec('ROLLBACK TO document_import');db.exec('RELEASE document_import');throw e}if(previous)stats.updated++;else stats.added++;
  }catch(e){stats.errors.push({file:relative,error:e.message})}finally{done++;if(done%250===0){db.exec('COMMIT');db.exec('BEGIN')}if(done%2000===0)console.log(`Processed ${done}/${files.length}`)}}db.exec('COMMIT');
 const duplicates=[...hashes.values()].filter(g=>g.length>1);stats.duplicate_groups=duplicates.length;stats.duplicates=duplicates.reduce((s,g)=>s+g.length-1,0);stats.missing_files=db.prepare('SELECT path FROM documents WHERE active=1').all().filter(d=>!seen.has(d.path)).map(d=>d.path);

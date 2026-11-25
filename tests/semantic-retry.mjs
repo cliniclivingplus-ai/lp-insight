@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';import {isConnectionError,uploadWithRetry} from '../scripts/semantic-retry.mjs';
+assert.equal(isConnectionError(new TypeError('fetch failed',{cause:Object.assign(new Error('DNS failure'),{code:'ENOTFOUND'})})),true);
+assert.equal(isConnectionError({status:503}),true);
+for(const error of [Error('STOP_REMOTE_STORAGE_CEILING'),Error('REMOTE_CORPUS_MISMATCH'),Error('QUOTA_EXCEEDED'),Error('SQLITE_ERROR'),{status:401},{status:429},new Error('STOP_MEASURED_INDEX_WILL_NOT_FIT',{cause:Object.assign(Error('offline'),{code:'ECONNRESET'})})])assert.equal(isConnectionError(error),false);
+let attempts=0,committed=64;const delays=[],events=[];
+await uploadWithRetry({attempt:async()=>{attempts++;if(attempts===1){committed+=64;return 1}assert.equal(committed,128,'resume must use server-confirmed checkpoint after a lost commit response');return 0},readStatus:()=>({operation:'upload',phase:'waiting-for-network',retryable:true,error:'fetch failed'}),save:event=>events.push(event),sleep:async ms=>delays.push(ms)});
+assert.equal(attempts,2);assert.deepEqual(delays,[15000]);assert.equal(events[0].phase,'waiting-for-network');
+attempts=0;await assert.rejects(uploadWithRetry({attempt:async()=>{attempts++;return 1},readStatus:()=>({operation:'upload',phase:'stopped',retryable:false,error:'STOP_REMOTE_STORAGE_CEILING'}),save:()=>{},sleep:async()=>assert.fail('must not retry storage stop')}),/STORAGE_CEILING/);assert.equal(attempts,1);
+attempts=0;const longDelays=[];await uploadWithRetry({attempt:async()=>++attempts>8?0:1,readStatus:()=>({operation:'upload',phase:'waiting-for-network',retryable:true,error:'fetch failed'}),save:()=>{},sleep:async ms=>longDelays.push(ms)});assert.equal(Math.max(...longDelays),300000);
+console.log('Passed connection classification, automatic recovery, committed checkpoint handoff, capped backoff and no retry on storage/data/auth/quota failures.');
