@@ -448,7 +448,7 @@ export async function GET(request: Request) {
             <div class="step-num s3">3</div>
             <div>
               <div class="step-h">First time here?</div>
-              <div class="step-p">Open <strong>Create an account</strong> below with your clinic email and administrator invitation password.</div>
+              <div class="step-p">Open <strong>Create an account</strong> below, enter your clinic email, and verify with the 6-digit OTP sent to your inbox.</div>
             </div>
           </div>
         </div>
@@ -519,18 +519,21 @@ export async function GET(request: Request) {
             </div>
             <div class="field">
               <label for="newEmail">Clinic email (@cliniclivingplus.com)</label>
-              <input id="newEmail" name="email" type="email" autocomplete="username" placeholder="doctor@cliniclivingplus.com" maxlength="254" required>
+              <div style="display:flex;gap:0.5rem;align-items:center;">
+                <input id="newEmail" name="email" type="email" autocomplete="username" placeholder="doctor@cliniclivingplus.com" maxlength="254" style="flex:1;" required>
+                <button id="sendOtpBtn" type="button" style="white-space:nowrap;padding:0.62rem 0.9rem;border-radius:10px;border:1.5px solid #25503F;background:#ECFDF5;color:#1A3A2D;font-weight:700;font-size:0.8rem;cursor:pointer;">Send OTP</button>
+              </div>
               <div id="newEmailHint" class="domain-hint"></div>
+            </div>
+            <div class="field">
+              <label for="otp">6-digit Email OTP</label>
+              <input id="otp" name="otp" type="text" inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" placeholder="Enter 6-digit code from your email" maxlength="6" required>
             </div>
             <div class="field">
               <label for="newPassword">New password (12–200 characters)</label>
               <input id="newPassword" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="200" required>
             </div>
-            <div class="field">
-              <label for="invite">Administrator invitation password</label>
-              <input id="invite" name="invite" type="password" autocomplete="off" maxlength="200" required>
-            </div>
-            <button id="registerSubmit" type="submit" class="submit-btn">Create Account</button>
+            <button id="registerSubmit" type="submit" class="submit-btn">Verify OTP &amp; Create Account</button>
             <p id="registerStatus" class="register-status" role="status"></p>
           </form>
         </details>
@@ -624,6 +627,43 @@ export async function GET(request: Request) {
       loginErrorText.textContent = 'Network or server connection error. Please try again.';
       loginError.classList.add('show');
       btn.disabled = false;
+    }
+  });
+
+  document.getElementById('sendOtpBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('sendOtpBtn');
+    const status = document.getElementById('registerStatus');
+    status.className = 'register-status';
+    status.textContent = '';
+
+    const email = newEmailInput.value.trim().toLowerCase();
+    if (!email.endsWith(DOMAIN) || email.indexOf('@') <= 0) {
+      status.className = 'register-status err';
+      status.textContent = 'Access Denied: Only @cliniclivingplus.com email addresses are permitted.';
+      newEmailInput.classList.add('invalid');
+      newEmailInput.focus();
+      return;
+    }
+
+    btn.disabled = true;
+    const origText = btn.textContent;
+    btn.textContent = 'Sending...';
+    try {
+      const response = await fetch('/api/account/otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await response.json();
+      if (!response.ok) throw Error(data.error || 'Could not send OTP');
+      status.textContent = data.message || 'Verification code sent! Check your @cliniclivingplus.com inbox.';
+      document.getElementById('otp').focus();
+    } catch (err) {
+      status.className = 'register-status err';
+      status.textContent = err.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = origText;
     }
   });
 
