@@ -36,11 +36,21 @@ export const html = `<!doctype html>
 <div class="composer-wrap"><form id="askForm"><textarea disabled id="question" placeholder="Ask any clinical, health, or nutrition question…" rows="2" aria-label="Your question" required></textarea><div class="composer-bottom"><span>▤ <span id="readyCount">0 sources ready</span><span class="keyboard-hint"> · Enter to send</span></span><button disabled class="send" aria-label="Send question">↑</button></div></form><p id="chatSaveStatus" class="muted" role="status"></p><p class="fine">Answers from your Living Plus database first, then scientific journals · Private to your account.</p></div>
 </section>
 <section id="libraryView" hidden>
-<div class="library-head"><h1>Library</h1><p>Browse and read your 16,400+ Living Plus books, articles, and transcripts. Search by title and click Read document to view its passages.</p></div>
+<div id="libraryBrowse">
+<div class="library-head"><h1>Library</h1><p>Browse and read your 16,400+ Living Plus books, PDFs, YouTube transcripts, and website articles.</p></div>
 <div class="drop" id="drop" hidden><strong>＋ Add your knowledge</strong><p>Choose .md files or drop them here.</p><button id="choose" class="primary">Choose Markdown files</button><button id="chooseFolder">Choose a folder</button></div>
-<div class="library-toolbar"><input id="filter" type="search" placeholder="Search library titles…" aria-label="Search library titles"><button id="clear" hidden>Clear library</button></div>
+<div id="libraryCats" class="lib-cats" role="tablist" aria-label="Library categories">
+<button type="button" class="lib-cat active" data-cat="all">All</button>
+<button type="button" class="lib-cat" data-cat="books">Books &amp; PDFs</button>
+<button type="button" class="lib-cat" data-cat="videos">YouTube Videos</button>
+<button type="button" class="lib-cat" data-cat="nutritionfacts">NutritionFacts</button>
+<button type="button" class="lib-cat" data-cat="pcrm">PCRM Website</button>
+</div>
+<div class="library-toolbar"><input id="filter" type="search" placeholder="Search titles in this category…" aria-label="Search library titles"><button id="clear" hidden>Clear library</button></div>
 <div id="libraryList"></div>
 <p id="importStatus" role="status"></p>
+</div>
+<article id="libraryReader" class="lib-reader" hidden></article>
 </section>
 <section id="researchView" hidden>
 <div class="library-head"><h1>Scientific research</h1><p>Search PubMed research or MedlinePlus health-topic summaries without generating an AI answer.</p></div>

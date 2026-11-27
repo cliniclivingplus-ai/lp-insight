@@ -28,49 +28,109 @@ let cloudStats=null;let libraryTimer;
 
 function showCloudSource(c){$('sourceTitle').textContent=c.title;$('sourceLocation').textContent=[c.heading,c.page!==null?'Page '+c.page:null,'Lines '+c.start_line+'–'+c.end_line,c.source_url].filter(Boolean).join(' · ');$('sourceText').textContent=c.content;$('sourceDialog').showModal()}
 
+let activeLibraryCat='all';
+const CAT_LABELS={books:'Book / PDF',videos:'YouTube Video',nutritionfacts:'NutritionFacts',pcrm:'PCRM Website'};
+function closeLibraryReader(){
+ const reader=$('libraryReader'),browse=$('libraryBrowse');
+ if(reader)reader.hidden=true;
+ if(browse)browse.hidden=false;
+}
 async function openLibraryDoc(docId,page=1){
- $('sourceTitle').textContent='Loading document…';
- $('sourceLocation').textContent='';
- $('sourceText').textContent='Fetching passages from the Living Plus library…';
- if(!$('sourceDialog').open)$('sourceDialog').showModal();
+ const reader=$('libraryReader'),browse=$('libraryBrowse');
+ if(browse)browse.hidden=true;
+ if(reader){reader.hidden=false;reader.innerHTML='<div class="reader-loading">Loading document…</div>';}
+ $('libraryView').scrollTop=0;
  try{
   const r=await fetch('/api/library?doc='+encodeURIComponent(docId)+'&page='+page);
   if(!r.ok)throw Error();
   const data=await r.json();
   const doc=data.document;
-  $('sourceTitle').textContent=doc.title;
-  const loc=$('sourceLocation');
-  loc.replaceChildren();
-  const meta=document.createElement('span');
-  meta.textContent=[doc.collection,data.total+' passages','Page '+data.page+' of '+data.totalPages].filter(Boolean).join(' · ');
-  loc.append(meta);
+  reader.replaceChildren();
+
+  const topBar=document.createElement('div');topBar.className='reader-topbar';
+  const backBtn=document.createElement('button');backBtn.type='button';backBtn.className='reader-back';backBtn.textContent='← Back to Library';backBtn.onclick=closeLibraryReader;
+  topBar.append(backBtn);
   if(doc.source_url){
-   const a=document.createElement('a');
-   a.href=doc.source_url;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Open link ↗';a.style.marginLeft='10px';
-   loc.append(a);
+   const ext=document.createElement('a');ext.href=doc.source_url;ext.target='_blank';ext.rel='noopener noreferrer';
+   ext.className=doc.collection==='videos'?'reader-yt-btn':'reader-ext-btn';
+   ext.textContent=doc.collection==='videos'?'▶ Watch on YouTube ↗':'Open original source ↗';
+   topBar.append(ext);
   }
-  if(data.totalPages>1){
-   const nav=document.createElement('span');
-   nav.style.marginLeft='12px';nav.style.display='inline-flex';nav.style.gap='6px';
-   const prev=document.createElement('button');prev.textContent='← Prev';prev.style.padding='3px 10px';prev.style.fontSize='12px';prev.disabled=data.page<=1;prev.onclick=()=>openLibraryDoc(docId,data.page-1);
-   const next=document.createElement('button');next.textContent='Next →';next.style.padding='3px 10px';next.style.fontSize='12px';next.disabled=data.page>=data.totalPages;next.onclick=()=>openLibraryDoc(docId,data.page+1);
-   nav.append(prev,next);loc.append(nav);
-  }
+  reader.append(topBar);
+
+  const head=document.createElement('div');head.className='reader-head';
+  const catBadge=document.createElement('span');catBadge.className='reader-cat';catBadge.textContent=CAT_LABELS[doc.collection]||doc.collection;
+  const h1=document.createElement('h1');h1.textContent=doc.title;
+  const meta=document.createElement('p');meta.className='muted';meta.textContent=[data.total+' passages','Page '+data.page+' of '+data.totalPages].join(' · ');
+  head.append(catBadge,h1,meta);
+  reader.append(head);
+
+  const body=document.createElement('div');body.className='reader-body';
   if(!data.passages.length){
-   $('sourceText').textContent='No readable text passages were found in this document.';
+   const empty=document.createElement('p');empty.className='muted';empty.textContent='No readable text passages were found in this document.';body.append(empty);
   }else{
-   $('sourceText').textContent=data.passages.map((p,idx)=>{
+   for(const p of data.passages){
+    const sec=document.createElement('section');sec.className='reader-section';
     const hdr=[p.heading,p.page!=null?'Page '+p.page:null].filter(Boolean).join(' · ');
-    return (hdr?'── '+hdr+' ──\n':'')+p.content.trim();
-   }).join('\n\n');
-   $('sourceText').scrollTop=0;
+    if(hdr){const h=document.createElement('h3');h.textContent=hdr;sec.append(h)}
+    for(const para of String(p.content||'').trim().split(/\n{2,}/)){
+     const clean=para.replace(/\n+/g,' ').trim();
+     if(!clean)continue;
+     const el=document.createElement('p');el.textContent=clean;sec.append(el);
+    }
+    body.append(sec);
+   }
+  }
+  reader.append(body);
+
+  if(data.totalPages>1){
+   const pager=document.createElement('div');pager.className='reader-pager';
+   const prev=document.createElement('button');prev.type='button';prev.textContent='← Previous Page';prev.disabled=data.page<=1;prev.onclick=()=>openLibraryDoc(docId,data.page-1);
+   const info=document.createElement('span');info.className='muted';info.textContent='Page '+data.page+' of '+data.totalPages;
+   const next=document.createElement('button');next.type='button';next.textContent='Next Page →';next.disabled=data.page>=data.totalPages;next.onclick=()=>openLibraryDoc(docId,data.page+1);
+   pager.append(prev,info,next);reader.append(pager);
   }
  }catch{
-  $('sourceTitle').textContent='Could not load document';
-  $('sourceText').textContent='The source could not be loaded. Please retry.';
+  reader.innerHTML='<div class="reader-topbar"><button type="button" class="reader-back" onclick="closeLibraryReader()">← Back to Library</button></div><p class="muted">Could not load this document. Please retry.</p>';
  }
 }
-async function cloudLibrary(){const list=$('libraryList');list.textContent='Loading shared sources…';try{const response=await fetch('/api/library?q='+encodeURIComponent($('filter').value));if(!response.ok)throw Error();const data=await response.json();list.replaceChildren();for(const d of data.documents){const row=document.createElement('div');row.className='file-row';const info=document.createElement('div'),title=document.createElement('strong'),sub=document.createElement('small');title.textContent=d.title;sub.textContent=[d.collection,d.passage_count?d.passage_count+' passages':null,d.path].filter(Boolean).join(' · ');info.append(title,sub);const button=document.createElement('button');button.textContent='Read document';button.disabled=!d.passage_count;button.onclick=()=>openLibraryDoc(d.id,1);row.append(info,button);list.append(row)}if(!data.documents.length)list.textContent='No sources match this filter.';$('importStatus').textContent='Showing up to 50 matching sources. Use the filter to find more.'}catch{list.textContent='Shared library unavailable. Refresh or sign in again.'}}
+async function cloudLibrary(){
+ closeLibraryReader();
+ const list=$('libraryList');list.textContent='Loading shared sources…';
+ try{
+  const response=await fetch('/api/library?collection='+encodeURIComponent(activeLibraryCat)+'&q='+encodeURIComponent($('filter').value));
+  if(!response.ok)throw Error();
+  const data=await response.json();
+  if(data.counts&&$('libraryCats')){
+   const labels={all:'All',books:'Books & PDFs',videos:'YouTube Videos',nutritionfacts:'NutritionFacts',pcrm:'PCRM Website'};
+   for(const btn of $('libraryCats').querySelectorAll('.lib-cat')){
+    const k=btn.dataset.cat;
+    btn.classList.toggle('active',k===activeLibraryCat);
+    if(typeof data.counts[k]==='number')btn.textContent=labels[k]+' ('+data.counts[k].toLocaleString()+')';
+    if(!btn._wired){btn._wired=true;btn.onclick=()=>{activeLibraryCat=k;cloudLibrary();};}
+   }
+  }
+  list.replaceChildren();
+  for(const d of data.documents){
+   const row=document.createElement('div');row.className='file-row';
+   const info=document.createElement('div'),title=document.createElement('strong'),sub=document.createElement('small');
+   const badge=document.createElement('span');badge.className='lib-badge';badge.textContent=CAT_LABELS[d.collection]||d.collection;
+   title.textContent=d.title;
+   sub.append(badge,document.createTextNode(' '+(d.passage_count?d.passage_count+' passages':'No text')));
+   info.append(title,sub);
+   const actions=document.createElement('div');actions.className='file-actions';
+   if(d.collection==='videos'&&d.source_url){
+    const yt=document.createElement('a');yt.href=d.source_url;yt.target='_blank';yt.rel='noopener noreferrer';yt.className='yt-pill';yt.textContent='▶ YouTube ↗';
+    actions.append(yt);
+   }
+   const button=document.createElement('button');button.textContent='Read';button.disabled=!d.passage_count;button.onclick=()=>openLibraryDoc(d.id,1);
+   actions.append(button);
+   row.append(info,actions);list.append(row);
+  }
+  if(!data.documents.length)list.textContent='No sources match this filter.';
+  $('importStatus').textContent='Showing up to 60 matching sources. Use search or categories to browse.';
+ }catch{list.textContent='Shared library unavailable. Refresh or sign in again.'}
+}
 
 const localUpdate=update;update=function(){if(!cloudStats){localUpdate();return}$('count').textContent=cloudStats.documents.toLocaleString();$('readyCount').textContent=cloudStats.documents.toLocaleString()+' shared sources';$('emptyHint').hidden=true};
 
