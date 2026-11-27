@@ -20,7 +20,7 @@ export const html = `<!doctype html>
 <div id="chatScroll">
 <div id="welcome">
 <h1>What can I help you <span>research today?</span></h1>
-<p class="hero-sub">Evidence-grounded answers from your 16,400+ Living Plus clinical library sources.</p>
+<p class="hero-sub">Searches your 16,400+ Living Plus database first, then peer-reviewed scientific journals when needed.</p>
 <div class="suggestions">
 <button data-q="What does the library say about intermittent fasting?">Intermittent fasting</button>
 <button data-q="Why is sleep important for blood sugar control?">Sleep &amp; blood sugar</button>
@@ -33,10 +33,10 @@ export const html = `<!doctype html>
 <button id="olderMessages" hidden>Load earlier messages</button>
 <div id="messages" aria-live="polite"></div>
 </div>
-<div class="composer-wrap"><form id="askForm"><textarea disabled id="question" placeholder="Ask a clinical or nutrition question from your library…" rows="2" aria-label="Your question" required></textarea><div class="composer-bottom"><span>▤ <span id="readyCount">0 sources ready</span><span class="keyboard-hint"> · Enter to send</span></span><button disabled class="send" aria-label="Send question">↑</button></div></form><p id="chatSaveStatus" class="muted" role="status"></p><p class="fine">Grounded in your ClinicLivingPlus library · Private to your account.</p></div>
+<div class="composer-wrap"><form id="askForm"><textarea disabled id="question" placeholder="Ask any clinical, health, or nutrition question…" rows="2" aria-label="Your question" required></textarea><div class="composer-bottom"><span>▤ <span id="readyCount">0 sources ready</span><span class="keyboard-hint"> · Enter to send</span></span><button disabled class="send" aria-label="Send question">↑</button></div></form><p id="chatSaveStatus" class="muted" role="status"></p><p class="fine">Answers from your Living Plus database first, then scientific journals · Private to your account.</p></div>
 </section>
 <section id="libraryView" hidden>
-<div class="library-head"><h1>Library</h1><p>Everything the assistant can use. Type a title to search, then preview a passage. To add or update sources, ask your administrator.</p></div>
+<div class="library-head"><h1>Library</h1><p>Browse and read your 16,400+ Living Plus books, articles, and transcripts. Search by title and click Read document to view its passages.</p></div>
 <div class="drop" id="drop" hidden><strong>＋ Add your knowledge</strong><p>Choose .md files or drop them here.</p><button id="choose" class="primary">Choose Markdown files</button><button id="chooseFolder">Choose a folder</button></div>
 <div class="library-toolbar"><input id="filter" type="search" placeholder="Search library titles…" aria-label="Search library titles"><button id="clear" hidden>Clear library</button></div>
 <div id="libraryList"></div>

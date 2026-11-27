@@ -28,7 +28,49 @@ let cloudStats=null;let libraryTimer;
 
 function showCloudSource(c){$('sourceTitle').textContent=c.title;$('sourceLocation').textContent=[c.heading,c.page!==null?'Page '+c.page:null,'Lines '+c.start_line+'–'+c.end_line,c.source_url].filter(Boolean).join(' · ');$('sourceText').textContent=c.content;$('sourceDialog').showModal()}
 
-async function cloudLibrary(){const list=$('libraryList');list.textContent='Loading shared sources…';try{const response=await fetch('/api/library?q='+encodeURIComponent($('filter').value));if(!response.ok)throw Error();const data=await response.json();list.replaceChildren();for(const d of data.documents){const row=document.createElement('div');row.className='file-row';const info=document.createElement('div'),title=document.createElement('strong'),sub=document.createElement('small');title.textContent=d.title;sub.textContent=d.collection+' · '+d.path;info.append(title,sub);const button=document.createElement('button');button.textContent='Preview passage';button.disabled=!d.chunk_id;button.onclick=async()=>{try{const r=await fetch('/api/source?chunk='+d.chunk_id);if(!r.ok)throw Error();showCloudSource(await r.json())}catch{$('importStatus').textContent='Source could not be loaded. Please retry.'}};row.append(info,button);list.append(row)}if(!data.documents.length)list.textContent='No sources match this filter.';$('importStatus').textContent='Showing up to 50 matching sources. Use the filter to find more.'}catch{list.textContent='Shared library unavailable. Refresh or sign in again.'}}
+async function openLibraryDoc(docId,page=1){
+ $('sourceTitle').textContent='Loading document…';
+ $('sourceLocation').textContent='';
+ $('sourceText').textContent='Fetching passages from the Living Plus library…';
+ if(!$('sourceDialog').open)$('sourceDialog').showModal();
+ try{
+  const r=await fetch('/api/library?doc='+encodeURIComponent(docId)+'&page='+page);
+  if(!r.ok)throw Error();
+  const data=await r.json();
+  const doc=data.document;
+  $('sourceTitle').textContent=doc.title;
+  const loc=$('sourceLocation');
+  loc.replaceChildren();
+  const meta=document.createElement('span');
+  meta.textContent=[doc.collection,data.total+' passages','Page '+data.page+' of '+data.totalPages].filter(Boolean).join(' · ');
+  loc.append(meta);
+  if(doc.source_url){
+   const a=document.createElement('a');
+   a.href=doc.source_url;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Open link ↗';a.style.marginLeft='10px';
+   loc.append(a);
+  }
+  if(data.totalPages>1){
+   const nav=document.createElement('span');
+   nav.style.marginLeft='12px';nav.style.display='inline-flex';nav.style.gap='6px';
+   const prev=document.createElement('button');prev.textContent='← Prev';prev.style.padding='3px 10px';prev.style.fontSize='12px';prev.disabled=data.page<=1;prev.onclick=()=>openLibraryDoc(docId,data.page-1);
+   const next=document.createElement('button');next.textContent='Next →';next.style.padding='3px 10px';next.style.fontSize='12px';next.disabled=data.page>=data.totalPages;next.onclick=()=>openLibraryDoc(docId,data.page+1);
+   nav.append(prev,next);loc.append(nav);
+  }
+  if(!data.passages.length){
+   $('sourceText').textContent='No readable text passages were found in this document.';
+  }else{
+   $('sourceText').textContent=data.passages.map((p,idx)=>{
+    const hdr=[p.heading,p.page!=null?'Page '+p.page:null].filter(Boolean).join(' · ');
+    return (hdr?'── '+hdr+' ──\n':'')+p.content.trim();
+   }).join('\n\n');
+   $('sourceText').scrollTop=0;
+  }
+ }catch{
+  $('sourceTitle').textContent='Could not load document';
+  $('sourceText').textContent='The source could not be loaded. Please retry.';
+ }
+}
+async function cloudLibrary(){const list=$('libraryList');list.textContent='Loading shared sources…';try{const response=await fetch('/api/library?q='+encodeURIComponent($('filter').value));if(!response.ok)throw Error();const data=await response.json();list.replaceChildren();for(const d of data.documents){const row=document.createElement('div');row.className='file-row';const info=document.createElement('div'),title=document.createElement('strong'),sub=document.createElement('small');title.textContent=d.title;sub.textContent=[d.collection,d.passage_count?d.passage_count+' passages':null,d.path].filter(Boolean).join(' · ');info.append(title,sub);const button=document.createElement('button');button.textContent='Read document';button.disabled=!d.passage_count;button.onclick=()=>openLibraryDoc(d.id,1);row.append(info,button);list.append(row)}if(!data.documents.length)list.textContent='No sources match this filter.';$('importStatus').textContent='Showing up to 50 matching sources. Use the filter to find more.'}catch{list.textContent='Shared library unavailable. Refresh or sign in again.'}}
 
 const localUpdate=update;update=function(){if(!cloudStats){localUpdate();return}$('count').textContent=cloudStats.documents.toLocaleString();$('readyCount').textContent=cloudStats.documents.toLocaleString()+' shared sources';$('emptyHint').hidden=true};
 
