@@ -20,15 +20,6 @@
 
   function appendAgentSentence(parent, sentence, sources, docOrder) {
     appendInline(parent, sentence.text);
-    if (sentence.flags?.includes('figure') || sentence.flags?.includes('uncited_figure')) {
-      const flag = document.createElement('span');
-      flag.className = 'agent-flag';
-      flag.textContent = '⚠';
-      flag.title = sentence.flags.includes('figure')
-        ? 'A figure in this sentence was not found verbatim in the cited passage. Check it against the source.'
-        : 'This sentence contains a figure with no citation. Verify it before use.';
-      parent.append(document.createTextNode(' '), flag);
-    }
     for (const entries of citationGroups(sentence.evidence || [], sources)) {
       const source = entries[0].source, index = docOrder.indexOf(source.document_id) + 1;
       if (index < 1) continue;
@@ -78,12 +69,6 @@
       if (b.t === 'h') { const h = document.createElement('h3'); h.textContent = b.text; answer.append(h); }
       else if (b.t === 'p') { const p = document.createElement('p'); p.className = 'grounded-sentence'; sentenceInto(p, b.i); answer.append(p); }
       else { const list = document.createElement(b.t); list.className = 'agent-list'; for (const item of b.items) { const li = document.createElement('li'); sentenceInto(li, item); list.append(li); } answer.append(list); }
-    }
-    if (result.agent?.uncited > 0) {
-      const note = document.createElement('p');
-      note.className = 'muted';
-      note.textContent = 'Some sentences are general framing without a citation.';
-      answer.append(note);
     }
     if (result.next_questions?.length) {
       const wrap = document.createElement('div');
