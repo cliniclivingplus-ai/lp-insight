@@ -1,40 +1,42 @@
 export const html = `<!doctype html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content"><title>LP Insight — Answers from the Living Plus library</title><link rel="stylesheet" href="style.css"></head>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content"><title>LP Insight — ClinicLivingPlus Clinical Intelligence</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css"></head>
 <body>
 <aside id="sidebar">
 <button id="closeChatSidebar" class="close-chat-sidebar" aria-label="Close menu">✕ Close</button>
-<a class="brand" href="/"><span class="logo">lp</span> Insight</a>
+<a class="brand" href="/"><span class="logo">lp</span><span>Insight<small class="brand-sub">ClinicLivingPlus</small></span></a>
 <button id="newChat" class="primary new-chat">＋ New chat</button>
 <section class="chat-history" aria-label="Your chats"><h2>Your chats</h2><div id="savedChats"></div></section>
-<div class="profile account-profile"><div><strong id="accountName">Your account</strong><small id="accountEmail"></small></div><form method="post" action="/api/logout"><button>Sign out</button></form></div>
+<div class="profile account-profile"><div class="profile-meta"><strong id="accountName">Your account</strong><small id="accountEmail"></small></div><form method="post" action="/api/logout"><button>Sign out</button></form></div>
 </aside>
 <button id="sidebarBackdrop" class="sidebar-backdrop" aria-label="Close chat menu" hidden></button>
 <main>
 <header>
 <button id="toggleChats" aria-controls="sidebar" aria-expanded="false">☰ Chats</button>
 <nav class="tabs" aria-label="Sections"><button class="nav active" data-view="chat">Ask</button><button class="nav" data-view="library">Library <span id="count">0</span></button><button class="nav" data-view="research">Research</button></nav>
+<div class="header-right"><span class="live-pill"><span class="live-dot"></span>Clinical Library Active</span><a href="/admin" class="admin-link">God View</a></div>
 <span id="viewTitle" hidden>Ask your library</span><button id="importTop" hidden>Browse sources</button>
 </header>
 <section id="chatView">
 <div id="chatScroll">
 <div id="welcome">
-<h1>What would you like to know?</h1>
-<p>Ask a question in your own words. LP Insight uses the Living Plus library, available PubMed evidence and MedlinePlus health information, with citations you can inspect.</p>
-<div class="suggest-label">Try one of these</div>
+<div class="hero-badge"><span class="live-dot"></span>ClinicLivingPlus Clinical Intelligence</div>
+<h1>What would you like to <span>explore today?</span></h1>
+<p class="hero-sub">Ask clinical, nutrition, or lifestyle questions in plain language. LP Insight synthesizes your 16,400+ curated Living Plus library sources with inspectable citations.</p>
+<div class="suggest-label">Suggested clinical prompts</div>
 <div class="suggestions">
-<button data-q="What does the library say about intermittent fasting?">What does the library say about intermittent fasting?</button>
-<button data-q="Why is sleep important for blood sugar control?">Why is sleep important for blood sugar control?</button>
-<button data-q="Make a plant-based protocol to improve my sleep and morning energy.">Make a plant-based protocol to improve sleep and morning energy</button>
-<button data-q="Which books or videos in the library talk about cortisol?">Which books or videos talk about cortisol?</button>
+<button data-q="What does the library say about intermittent fasting?"><span class="sug-tag">Metabolic</span><span class="sug-text">What does the library say about intermittent fasting?</span></button>
+<button data-q="Why is sleep important for blood sugar control?"><span class="sug-tag">Sleep &amp; Glucose</span><span class="sug-text">Why is sleep important for blood sugar control?</span></button>
+<button data-q="Make a plant-based protocol to improve my sleep and morning energy."><span class="sug-tag">Protocol</span><span class="sug-text">Make a plant-based protocol to improve sleep and morning energy</span></button>
+<button data-q="Which books or videos in the library talk about cortisol?"><span class="sug-tag">Library Discovery</span><span class="sug-text">Which books or videos talk about cortisol?</span></button>
 </div>
-<ol class="steps"><li><b>1. Ask</b>Type a question or request a plan.</li><li><b>2. Read</b>You get a clear answer with the reasoning.</li><li><b>3. Check</b>Click [1], [2]… to see the exact source.</li></ol>
+<ol class="steps"><li><span class="step-badge">1</span><div><b>Ask naturally</b>Type any clinical question, comparison, or protocol request.</div></li><li><span class="step-badge">2</span><div><b>Synthesized answer</b>Get a clear, structured response grounded in your database.</div></li><li><span class="step-badge">3</span><div><b>Verify citations</b>Click [1], [2]… anytime to inspect the exact source passage.</div></li></ol>
 <div class="empty-hint" id="emptyHint" hidden></div>
 </div>
 <div id="chatActions" hidden><button id="renameChat">Rename chat</button> <button id="deleteChat">Delete chat</button></div>
 <button id="olderMessages" hidden>Load earlier messages</button>
 <div id="messages" aria-live="polite"></div>
 </div>
-<div class="composer-wrap"><form id="askForm"><textarea disabled id="question" placeholder="Ask a question about the library…" rows="2" aria-label="Your question" required></textarea><div class="composer-bottom"><span>▤ <span id="readyCount">0 sources ready</span><span class="keyboard-hint"> · Enter to send</span></span><button disabled class="send" aria-label="Send question">↑</button></div></form><p id="chatSaveStatus" class="muted" role="status"></p><p class="fine">Answers come only from the library.</p></div>
+<div class="composer-wrap"><form id="askForm"><textarea disabled id="question" placeholder="Ask a clinical or nutrition question from your library…" rows="2" aria-label="Your question" required></textarea><div class="composer-bottom"><span>▤ <span id="readyCount">0 sources ready</span><span class="keyboard-hint"> · Enter to send</span></span><button disabled class="send" aria-label="Send question">↑</button></div></form><p id="chatSaveStatus" class="muted" role="status"></p><p class="fine">Grounded in your ClinicLivingPlus library · Private to your account.</p></div>
 </section>
 <section id="libraryView" hidden>
 <div class="library-head"><h1>Library</h1><p>Everything the assistant can use. Type a title to search, then preview a passage. To add or update sources, ask your administrator.</p></div>
