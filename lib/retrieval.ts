@@ -66,12 +66,29 @@ export function ftsQuery(text:string){
  const words=[...new Set(normalized.match(/[\p{L}\p{N}]+/gu)||[])].filter(t=>t.length>1).slice(0,7);
  return words.map(t=>t==='lpsearchlowcarb'?'("low carb"* OR "low carbohydrate"*)':'"'+t+'"*').join(' AND ');
 }
+function ftsFallbackOrQuery(text:string){
+ const stop=new Set('the and for with from that this what how why does are was were can could should would about into over your their'.split(' '));
+ const normalized=text.toLowerCase().replace(/\blow[\s-]+carb(?:ohydrate)?s?\b/gu,'lpsearchlowcarb');
+ const words=[...new Set(normalized.match(/[\p{L}\p{N}]+/gu)||[])].filter(t=>t.length>2&&!stop.has(t)).slice(0,6);
+ if(words.length<2)return '';
+ return words.map(t=>t==='lpsearchlowcarb'?'("low carb"* OR "low carbohydrate"*)':'"'+t+'"*').join(' OR ');
+}
 const columns='c.*,d.title,d.path,d.source_url,d.collection,d.status';
 export async function retrieveTopics(topics:Topic[],semantic?:SemanticInput){
  const semanticPromise=semantic?semanticMatches(semantic):Promise.resolve([]);
  const groups=await Promise.all(topics.map(async topic=>{
-  const queries=[...new Set(topic.queries.map(ftsQuery).filter(Boolean))];
-  const matches=await Promise.all(queries.map(match=>query('SELECT '+columns+',bm25(lp_search) AS rank FROM lp_search JOIN lp_chunks c ON c.id=lp_search.rowid JOIN lp_documents d ON d.id=c.document_id AND d.version=c.document_version WHERE lp_search MATCH ? ORDER BY rank,c.id LIMIT 30',[match])));
+  const rawQueries=[...new Set(topic.queries.filter(Boolean))];
+  const matches=await Promise.all(rawQueries.map(async q=>{
+   const match=ftsQuery(q);
+   if(!match)return [];
+   const exact=await query('SELECT '+columns+',bm25(lp_search) AS rank FROM lp_search JOIN lp_chunks c ON c.id=lp_search.rowid JOIN lp_documents d ON d.id=c.document_id AND d.version=c.document_version WHERE lp_search MATCH ? ORDER BY rank,c.id LIMIT 30',[match]);
+   if(exact.length>=4)return exact;
+   const orMatch=ftsFallbackOrQuery(q);
+   if(!orMatch)return exact;
+   const broader=await query('SELECT '+columns+',bm25(lp_search) AS rank FROM lp_search JOIN lp_chunks c ON c.id=lp_search.rowid JOIN lp_documents d ON d.id=c.document_id AND d.version=c.document_version WHERE lp_search MATCH ? ORDER BY rank,c.id LIMIT 20',[orMatch]);
+   const seenIds=new Set(exact.map((r:any)=>r.id));
+   return [...exact,...broader.filter((r:any)=>!seenIds.has(r.id))];
+  }));
   const byId=new Map<number,{row:any;score:number}>();
   matches.forEach(rows=>rows.forEach((row:any,i:number)=>{const entry=byId.get(row.id)||{row,score:0};entry.score+=1/(12+i);const boiler=(row.content.match(/Health and Nutrition News|Exam Room Podcast|Load More|Share on Facebook/g)||[]).length;entry.score-=Math.min(0.015,boiler*0.001);byId.set(row.id,entry)}));
   if(/\bcompar\w*|\bversus\b|\bvs\b/iu.test(topic.question)){

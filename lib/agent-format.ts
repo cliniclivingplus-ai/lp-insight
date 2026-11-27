@@ -85,7 +85,7 @@ export function formatAnswer(raw:string,byRef:Map<number,Src>,options:{personalM
   if(options.personalMedical&&(doseLike.test(clean)||treatmentChangeLike.test(clean))){stats.doseRemoved++;return null}
   if(sentences.length>=60)return null;
   const evidence:Evidence[]=[];const flags:string[]=[];
-  for(const ref of known){const src=byRef.get(ref)!;cited.set(src.id,src);const quote=bestQuote(clean,String(src.content||''));if(quote&&evidence.length<2)evidence.push({source_id:src.id,quote})}
+  for(const ref of known){const src=byRef.get(ref)!;cited.set(src.id,src);const rawContent=String(src.content||'').trim();const quote=bestQuote(clean,rawContent)||(rawContent?rawContent.slice(0,220).trim():'');if(quote&&evidence.length<2)evidence.push({source_id:src.id,quote})}
   const numbers=options.deps.numbersIn(clean);
   if(numbers.size){
    if(!known.length){flags.push('uncited_figure');stats.figureFlags++}
