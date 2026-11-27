@@ -19,17 +19,14 @@ export const html = `<!doctype html>
 <section id="chatView">
 <div id="chatScroll">
 <div id="welcome">
-<div class="hero-badge"><span class="live-dot"></span>ClinicLivingPlus Clinical Intelligence</div>
-<h1>What would you like to <span>explore today?</span></h1>
-<p class="hero-sub">Ask clinical, nutrition, or lifestyle questions in plain language. LP Insight synthesizes your 16,400+ curated Living Plus library sources with inspectable citations.</p>
-<div class="suggest-label">Suggested clinical prompts</div>
+<h1>What can I help you <span>research today?</span></h1>
+<p class="hero-sub">Evidence-grounded answers from your 16,400+ Living Plus clinical library sources.</p>
 <div class="suggestions">
-<button data-q="What does the library say about intermittent fasting?"><span class="sug-tag">Metabolic</span><span class="sug-text">What does the library say about intermittent fasting?</span></button>
-<button data-q="Why is sleep important for blood sugar control?"><span class="sug-tag">Sleep &amp; Glucose</span><span class="sug-text">Why is sleep important for blood sugar control?</span></button>
-<button data-q="Make a plant-based protocol to improve my sleep and morning energy."><span class="sug-tag">Protocol</span><span class="sug-text">Make a plant-based protocol to improve sleep and morning energy</span></button>
-<button data-q="Which books or videos in the library talk about cortisol?"><span class="sug-tag">Library Discovery</span><span class="sug-text">Which books or videos talk about cortisol?</span></button>
+<button data-q="What does the library say about intermittent fasting?">Intermittent fasting</button>
+<button data-q="Why is sleep important for blood sugar control?">Sleep &amp; blood sugar</button>
+<button data-q="Make a plant-based protocol to improve my sleep and morning energy.">Sleep &amp; energy protocol</button>
+<button data-q="Which books or videos in the library talk about cortisol?">Cortisol sources</button>
 </div>
-<ol class="steps"><li><span class="step-badge">1</span><div><b>Ask naturally</b>Type any clinical question, comparison, or protocol request.</div></li><li><span class="step-badge">2</span><div><b>Synthesized answer</b>Get a clear, structured response grounded in your database.</div></li><li><span class="step-badge">3</span><div><b>Verify citations</b>Click [1], [2]… anytime to inspect the exact source passage.</div></li></ol>
 <div class="empty-hint" id="emptyHint" hidden></div>
 </div>
 <div id="chatActions" hidden><button id="renameChat">Rename chat</button> <button id="deleteChat">Delete chat</button></div>
