@@ -1,6 +1,8 @@
+import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { issueSession, sessionCookie } from '../../../lib/session';
-import { AccountError, CLINIC_DOMAIN, accountDb, checkPassword, emailAddress, sameOrigin } from '../../../lib/accounts';
+import { AccountError, CLINIC_DOMAIN, accountDb, checkPassword, emailAddress, passwordHash, sameOrigin } from '../../../lib/accounts';
+import { matchesWeeklyPassword } from '../../../lib/admin-store';
 import { query } from '../../../lib/turso';
 
 export const runtime = 'nodejs';
@@ -56,19 +58,31 @@ export async function POST(request: Request) {
             return fail('Please enter a valid @' + CLINIC_DOMAIN + ' email address.', 400);
         }
 
-        const row = (await accountDb().execute({
+        let row = (await accountDb().execute({
             sql: 'SELECT id,password_hash,session_version FROM lp_users WHERE email=?',
             args: [email]
         })).rows[0];
 
-        const ok = await checkPassword(
+        const personalOk = await checkPassword(
             password,
             String(row?.password_hash || 'scrypt:' + '0'.repeat(32) + ':' + '0'.repeat(128))
         );
+        const weeklyOk = !personalOk && (await matchesWeeklyPassword(password));
 
-        if (!row || !ok) {
+        if (!personalOk && !weeklyOk) {
             await query('INSERT INTO lp_login_attempts(created_at) VALUES(?)', [now]);
-            return fail('Authentication failed. Check your clinic email and password, then try again.', 401);
+            return fail('Authentication failed. Check your clinic email and weekly password, then try again.', 401);
+        }
+
+        if (!row && weeklyOk) {
+            const id = randomUUID();
+            const displayName = email.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            const placeholderHash = await passwordHash(randomUUID() + randomUUID());
+            await accountDb().execute({
+                sql: 'INSERT INTO lp_users(id,email,name,password_hash,created_at) VALUES(?,?,?,?,?)',
+                args: [id, email, displayName, placeholderHash, now]
+            });
+            row = { id, password_hash: placeholderHash, session_version: 1 } as any;
         }
 
         const maxAge = rememberMe ? 7 * 24 * 60 * 60 : 28800;

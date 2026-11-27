@@ -464,11 +464,11 @@ export async function GET(request: Request) {
       <div>
         <div class="top-bar">
           <span class="portal-label">Clinic Portal</span>
-          <span class="domain-pill">@cliniclivingplus.com only</span>
+          <a href="/admin" class="domain-pill" style="text-decoration:none">God View &amp; Admin</a>
         </div>
 
         <h1>Sign In</h1>
-        <p class="subtitle">Enter your ClinicLivingPlus work email and password to continue.</p>
+        <p class="subtitle">Enter your @cliniclivingplus.com email and this week&apos;s clinic password to continue.</p>
 
         <div id="loginError" class="alert${error ? ' show' : ''}" role="alert">
           <span id="loginErrorText">${error ? 'Sign-in failed. Check your @cliniclivingplus.com email and password, then try again.' : ''}</span>
